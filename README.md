@@ -33,7 +33,8 @@ This project is a Spring Boot 3 JWT authentication example with:
 - Stateless session management (`SessionCreationPolicy.STATELESS`)
 
 2. User Registration and Login
-- Signup endpoint stores user with encoded password (BCrypt)
+- Signup endpoint delegates to `UserService` middle layer
+- `UserService` checks duplicate username, encodes password (BCrypt), and saves user
 - Signin endpoint authenticates via `AuthenticationManager` and returns JWT
 
 3. Database Layer
@@ -70,8 +71,10 @@ This project is a Spring Boot 3 JWT authentication example with:
   - `401` for invalid refresh/access token
   - `409` when signup username already exists
 
-8. Service Layer Logging
-- Added logs in `CustomUserDetailsService` for user lookup flow:
+8. Service Layer
+- `UserService` handles signup business logic between controller and repository
+- `CustomUserDetailsService` handles user loading for Spring Security
+- Logging in `CustomUserDetailsService` for user lookup flow:
   - debug: load start and success
   - warn: user not found
 
@@ -83,6 +86,10 @@ This project is a Spring Boot 3 JWT authentication example with:
 - `CustomUserDetailsServiceTest` (Mockito) includes:
   - user found path returns `UserDetails`
   - user not found path throws `UsernameNotFoundException`
+- `AuthenticationControllerTest` (Mockito) verifies controller behavior while mocking `UserService`
+- `UserServiceTest` (Mockito) includes:
+  - throws `409 CONFLICT` when username already exists
+  - saves encoded password when signup is valid
 
 ## API Endpoints
 
@@ -236,8 +243,8 @@ docker build -t jwt-token-example:latest .
 docker run --name jwt-token-example -p 8080:8080 \
   -e JWT_SECRET='your-very-strong-32+-char-secret' \
   -e DB_URL='jdbc:mysql://host.docker.internal:3306/jwtdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC' \
-  -e DB_USERNAME='harsh' \
-  -e DB_PASSWORD='harsh123' \
+  -e DB_USERNAME='' \
+  -e DB_PASSWORD='' \
   jwt-token-example:latest
 ```
 
@@ -267,7 +274,8 @@ src/main/java/spring/security/jwt
 │   ├── JwtUtils.java
 │   └── WebSecurityConfig.java
 └── services
-    └── CustomUserDetailsService.java
+    ├── CustomUserDetailsService.java
+    └── UserService.java
 ```
 
 ## Important Fixes Applied
@@ -283,6 +291,8 @@ src/main/java/spring/security/jwt
 - Fixed `AuthenticationConfiguration` wiring in Spring Security config
 - Added Lombok compiler annotation processing config in Maven
 - Added Mockito-based unit tests for `CustomUserDetailsService`
+- Introduced `UserService` as a middle layer and moved signup persistence logic out of `AuthenticationController`
+- Updated controller tests to mock `UserService` and added dedicated `UserServiceTest`
 - Added Dockerfile and `.dockerignore` for containerized execution
 
 ## Notes
