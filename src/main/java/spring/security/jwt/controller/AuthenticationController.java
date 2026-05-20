@@ -7,7 +7,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,8 +15,8 @@ import org.springframework.web.server.ResponseStatusException;
 import spring.security.jwt.dto.AuthResponse;
 import spring.security.jwt.dto.RefreshTokenRequest;
 import spring.security.jwt.entity.User;
-import spring.security.jwt.repository.UserRepository;
 import spring.security.jwt.security.JwtUtils;
+import spring.security.jwt.services.UserService;
 
 import static org.springframework.http.HttpStatus.*;
 
@@ -30,9 +29,7 @@ public class AuthenticationController {
     @Autowired
     private JwtUtils jwtUtils;
     @Autowired
-    private PasswordEncoder passwordEncoder;
-    @Autowired
-    private UserRepository userRepository;
+    private UserService userService;
 
     @PostMapping("/signin")
     @Operation(summary = "Sign in user", description = "Authenticates user credentials and returns access and refresh JWT tokens.")
@@ -62,16 +59,7 @@ public class AuthenticationController {
     @PostMapping("/signup")
     @Operation(summary = "Register user", description = "Registers a new user with encoded password if username is not already present.")
     public String registerUser(@RequestBody User user) {
-        if (userRepository.existsByUsername(user.getUsername())) {
-            throw new ResponseStatusException(CONFLICT, "User already exists");
-        }
-
-        final User newUser = new User(
-                null,
-                user.getUsername(),
-                passwordEncoder.encode(user.getPassword())
-        );
-        userRepository.save(newUser);
+        userService.registerUser(user);
         return "User registered successfully!";
     }
 

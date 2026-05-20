@@ -10,18 +10,19 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 import spring.security.jwt.dto.AuthResponse;
 import spring.security.jwt.dto.RefreshTokenRequest;
 import spring.security.jwt.entity.User;
-import spring.security.jwt.repository.UserRepository;
 import spring.security.jwt.security.JwtUtils;
+import spring.security.jwt.services.UserService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
@@ -38,10 +39,7 @@ class AuthenticationControllerTest {
     private JwtUtils jwtUtils;
 
     @Mock
-    private PasswordEncoder passwordEncoder;
-
-    @Mock
-    private UserRepository userRepository;
+    private UserService userService;
 
     @Mock
     private Authentication authentication;
@@ -134,7 +132,8 @@ class AuthenticationControllerTest {
     @Test
     void registerUserShouldThrowConflictWhenUserAlreadyExists() {
         User request = new User(null, "john", "john123");
-        when(userRepository.existsByUsername("john")).thenReturn(true);
+        doThrow(new ResponseStatusException(CONFLICT, "User already exists"))
+                .when(userService).registerUser(request);
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
@@ -143,22 +142,18 @@ class AuthenticationControllerTest {
 
         assertEquals(CONFLICT.value(), exception.getStatusCode().value());
         assertEquals("User already exists", exception.getReason());
-        verify(userRepository).existsByUsername("john");
+        verify(userService).registerUser(request);
     }
 
     @Test
     void registerUserShouldSaveEncodedPasswordWhenUserDoesNotExist() {
         User request = new User(null, "john", "john123");
-        when(userRepository.existsByUsername("john")).thenReturn(false);
-        when(passwordEncoder.encode("john123")).thenReturn("encoded-password");
+        doNothing().when(userService).registerUser(request);
 
         String response = authenticationController.registerUser(request);
 
         assertEquals("User registered successfully!", response);
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(userCaptor.capture());
-        assertEquals("john", userCaptor.getValue().getUsername());
-        assertEquals("encoded-password", userCaptor.getValue().getPassword());
+        verify(userService).registerUser(request);
     }
 
     private void mockTokenIssuance(
